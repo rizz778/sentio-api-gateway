@@ -9,14 +9,20 @@ const connectionManager = require('./connection/ConnectionManager');
 const healthRouter = require('./api/health');
 const { handleLiveUpgrade } = require('./ws/live');
 const { verifyGoogleTokenForUpgrade } = require('./middleware/auth');
+const { dynamicProxy, proxyGuard } = require('./proxy/httpProxy');
 
 // ── Express App ──────────────────────────────────────────────────────────────
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// REST routes
+// Internal health / readiness probes (no service header required)
 app.use('/', healthRouter);
+
+// ── Dynamic Reverse Proxy ─────────────────────────────────────────────────────
+// All other REST traffic: read x-sentio-service header → resolve → forward.
+// proxyGuard validates the header and returns 400/502 before hitting the proxy.
+app.use(proxyGuard, dynamicProxy);
 
 // ── HTTP Server ──────────────────────────────────────────────────────────────
 const server = http.createServer(app);

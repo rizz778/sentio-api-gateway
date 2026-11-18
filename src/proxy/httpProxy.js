@@ -1,0 +1,83 @@
+const { createProxyMiddleware } = require('http-proxy-middleware');
+const registry = require('../registry/ServiceRegistry');
+
+const SERVICE_HEADER = 'x-sentio-service';
+
+/**
+ * Dynamic HTTP reverse proxy.
+ *
+ * Every inbound REST request must carry:
+ *   x-sentio-service: <service-name>   e.g. "node-backend" | "fastapi-backend"
+ *
+ * The gateway:
+ *   1. Reads the header
+ *   2. Resolves the target URL from ServiceRegistry
+ *   3. Strips x-sentio-service so backends never see it
+ *   4. Proxies the full request transparently (path, method, body, headers preserved)
+ *
+ * On unknown service → 502 Bad Gateway.
+ * On missing header  → 400 Bad Request.
+ */
+const dynamicProxy = createProxyMiddleware({
+  // Dynamically resolve target per-request
+  router: (req) => {
+    const serviceName = req.headers[SERVICE_HEADER];
+    const target = registry.resolve(serviceName);
+    return target; // returning undefined/null will trigger the error handler below
+  },
+
+  changeOrigin: true,
+
+  // Strip the routing header before forwarding to downstream service
+  on: {
+    proxyReq: (proxyReq, req) => {
+      proxyReq.removeHeader(SERVICE_HEADER);
+
+      // Log the forwarded request
+      const target = registry.resolve(req.headers[SERVICE_HEADER]);
+      console.log(
+        `[Proxy] ${req.method} ${req.path} → ${target || 'UNKNOWN'}${req.path}`
+      );
+    },
+
+    error: (err, req, res) => {
+      console.error(`[Proxy] Error forwarding to service:`, err.message);
+      if (!res.headersSent) {
+        res.status(502).json({
+          error: 'BAD_GATEWAY',
+          message: `Failed to reach upstream service: ${err.message}`,
+        });
+      }
+    },
+  },
+});
+
+/**
+ * Pre-proxy guard middleware.
+ * Validates the x-sentio-service header and short-circuits with appropriate
+ * error responses before the proxy middleware even runs.
+ */
+function proxyGuard(req, res, next) {
+  const serviceName = req.headers[SERVICE_HEADER];
+
+  if (!serviceName) {
+    return res.status(400).json({
+      error: 'MISSING_SERVICE_HEADER',
+      message: `Request must include the '${SERVICE_HEADER}' header`,
+      availableServices: registry.list(),
+    });
+  }
+
+  const target = registry.resolve(serviceName);
+  if (!target) {
+    return res.status(502).json({
+      error: 'UNKNOWN_SERVICE',
+      message: `No registered service named '${serviceName}'`,
+      availableServices: registry.list(),
+    });
+  }
+
+  next();
+}
+
+module.exports = { dynamicProxy, proxyGuard };

@@ -25,6 +25,7 @@ function loadProto() {
 /**
  * Creates or retrieves the singleton gRPC client for SentioLiveGateway.
  */
+
 function getGatewayClient() {
   if (!clientInstance) {
     const proto = loadProto();
@@ -57,6 +58,7 @@ function createSessionStream() {
 /**
  * Checks gRPC connectivity state.
  */
+
 function checkConnectivity() {
   const client = getGatewayClient();
   const channel = client.getChannel();
