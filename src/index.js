@@ -7,6 +7,7 @@ require('dotenv').config();
 const config = require('./config');
 const connectionManager = require('./connection/ConnectionManager');
 const healthRouter = require('./api/health');
+const authRouter = require('./api/auth');
 const { handleLiveUpgrade } = require('./ws/live');
 const { verifyGoogleToken, verifyGoogleTokenForUpgrade } = require('./middleware/auth');
 const { dynamicProxy, proxyGuard } = require('./proxy/httpProxy');
@@ -16,14 +17,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Internal health / readiness probes (no service header required)
+// Gateway-hosted endpoints (health probes & authentication)
 app.use('/', healthRouter);
+app.use('/', authRouter);
+app.use('/api', authRouter);
 
 // ── Dynamic Reverse Proxy ─────────────────────────────────────────────────────
-// Order: auth → service guard → proxy
+// All other requests require valid Google Auth token & service discovery header:
 // 1. verifyGoogleToken  — rejects with 401 if token missing/invalid; attaches req.user
 // 2. proxyGuard         — rejects with 400/502 if x-sentio-service header is bad
-// 3. dynamicProxy       — resolves target, injects x-user-id, forwards request
+// 3. dynamicProxy       — resolves target, injects x-user-id & x-user-email, forwards
 app.use(verifyGoogleToken, proxyGuard, dynamicProxy);
 
 // ── HTTP Server ──────────────────────────────────────────────────────────────

@@ -19,4 +19,13 @@ module.exports = {
   MAX_WS_BUFFER_BYTES: parseInt(process.env.MAX_WS_BUFFER_BYTES || '65536', 10), // 64 KB
   GRPC_RECONNECT_MAX_ATTEMPTS: parseInt(process.env.GRPC_RECONNECT_MAX_ATTEMPTS || '5', 10),
   GRPC_RECONNECT_BASE_DELAY_MS: parseInt(process.env.GRPC_RECONNECT_BASE_DELAY_MS || '500', 10),
+
+  // Google OAuth Credentials
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
+  GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || 'postmessage',
+  GOOGLE_CLIENT_IDS: (process.env.GOOGLE_CLIENT_IDS || process.env.GOOGLE_CLIENT_ID || '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean),
 };

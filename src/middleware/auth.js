@@ -1,6 +1,11 @@
 const { OAuth2Client } = require('google-auth-library');
+const config = require('../config');
 
-const client = new OAuth2Client();
+const client = new OAuth2Client(
+  config.GOOGLE_CLIENT_ID,
+  config.GOOGLE_CLIENT_SECRET,
+  config.GOOGLE_REDIRECT_URI
+);
 
 /**
  * Verifies a Google ID token (from Firebase Auth or Google Sign-In).
@@ -13,10 +18,7 @@ const client = new OAuth2Client();
  * Usage for WS upgrades:   call verifyGoogleTokenForUpgrade(request) → resolves user or throws
  */
 
-const GOOGLE_CLIENT_IDS = (process.env.GOOGLE_CLIENT_IDS || '')
-  .split(',')
-  .map((id) => id.trim())
-  .filter(Boolean);
+const GOOGLE_CLIENT_IDS = config.GOOGLE_CLIENT_IDS;
 
 /**
  * Extracts the Bearer token from an Authorization header string.
@@ -125,6 +127,8 @@ async function verifyGoogleTokenForUpgrade(request, socket) {
 }
 
 module.exports = {
+  client,
+  verifyToken,
   verifyGoogleToken,
   verifyGoogleTokenForUpgrade,
 };
