@@ -31,13 +31,18 @@ const dynamicProxy = createProxyMiddleware({
   // Strip the routing header before forwarding to downstream service
   on: {
     proxyReq: (proxyReq, req) => {
-      proxyReq.removeHeader(SERVICE_HEADER);
+      // Strip the routing header — backends must never see it
+      proxyReq.removeHeader('x-sentio-service');
 
-      // Log the forwarded request
-      const target = registry.resolve(req.headers[SERVICE_HEADER]);
-      console.log(
-        `[Proxy] ${req.method} ${req.path} → ${target || 'UNKNOWN'}${req.path}`
-      );
+      // Inject verified identity headers so downstream services trust req.user
+      // without re-verifying the Google token themselves
+      if (req.user) {
+        proxyReq.setHeader('x-user-id', req.user.uid);
+        proxyReq.setHeader('x-user-email', req.user.email || '');
+      }
+
+      const target = registry.resolve(req.headers['x-sentio-service']);
+      console.log(`[Proxy] ${req.method} ${req.path} → ${target || 'UNKNOWN'}${req.path}`);
     },
 
     error: (err, req, res) => {
