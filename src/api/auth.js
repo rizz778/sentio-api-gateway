@@ -2,12 +2,10 @@ const express = require('express');
 const router = express.Router();
 
 const { client, verifyToken, verifyGoogleToken } = require('../middleware/auth');
+const { authRateLimiter } = require('../middleware/rateLimiter');
 const registry = require('../registry/ServiceRegistry');
 
-/**
- * Helper to optionally notify node-backend when a user authenticates,
- * allowing it to create/sync the user record in its database.
- */
+
 async function syncUserWithNodeBackend(user) {
   const nodeTarget = registry.resolve('node-backend');
   if (!nodeTarget) return;
@@ -44,7 +42,7 @@ async function syncUserWithNodeBackend(user) {
  *
  * Verifies with Google, extracts user identity, and returns the verified token.
  */
-router.post('/auth/google', async (req, res) => {
+router.post('/auth/google', authRateLimiter, async (req, res) => {
   const { idToken, credential, code } = req.body || {};
 
   try {
@@ -67,7 +65,7 @@ router.post('/auth/google', async (req, res) => {
     const user = await verifyToken(rawIdToken);
 
     // Optional background sync with node-backend
-    syncUserWithNodeBackend(user).catch(() => {});
+    syncUserWithNodeBackend(user).catch(() => { });
 
     console.log(`[Auth] User authenticated successfully: ${user.email} (${user.uid})`);
 

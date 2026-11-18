@@ -11,11 +11,18 @@ const authRouter = require('./api/auth');
 const { handleLiveUpgrade } = require('./ws/live');
 const { verifyGoogleToken, verifyGoogleTokenForUpgrade } = require('./middleware/auth');
 const { dynamicProxy, proxyGuard } = require('./proxy/httpProxy');
+const requestIdMiddleware = require('./middleware/requestId');
+const requestLogger = require('./middleware/logger');
+const { serviceRateLimiter, redis } = require('./middleware/rateLimiter');
 
 // ── Express App ──────────────────────────────────────────────────────────────
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Global observability: request ID propagation & structured access logging
+app.use(requestIdMiddleware);
+app.use(requestLogger);
 
 // Gateway-hosted endpoints (health probes & authentication)
 app.use('/', healthRouter);
@@ -24,10 +31,11 @@ app.use('/api', authRouter);
 
 // ── Dynamic Reverse Proxy ─────────────────────────────────────────────────────
 // All other requests require valid Google Auth token & service discovery header:
-// 1. verifyGoogleToken  — rejects with 401 if token missing/invalid; attaches req.user
-// 2. proxyGuard         — rejects with 400/502 if x-sentio-service header is bad
-// 3. dynamicProxy       — resolves target, injects x-user-id & x-user-email, forwards
-app.use(verifyGoogleToken, proxyGuard, dynamicProxy);
+// 1. verifyGoogleToken   — rejects with 401 if token missing/invalid; attaches req.user
+// 2. proxyGuard          — rejects with 400/502 if x-sentio-service header is bad
+// 3. serviceRateLimiter  — enforces per-service rate limits (e.g. 25/min AI, 120/min Node)
+// 4. dynamicProxy        — resolves target, injects x-user-id, x-user-email, x-request-id, forwards
+app.use(verifyGoogleToken, proxyGuard, serviceRateLimiter, dynamicProxy);
 
 // ── HTTP Server ──────────────────────────────────────────────────────────────
 const server = http.createServer(app);
@@ -68,6 +76,10 @@ const shutdown = async (signal) => {
   });
 
   await connectionManager.gracefulDrain(8000);
+
+  try {
+    await redis.quit();
+  } catch (e) {}
 
   console.log('[Gateway] Shutdown complete.');
   process.exit(0);

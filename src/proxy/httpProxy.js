@@ -41,6 +41,11 @@ const dynamicProxy = createProxyMiddleware({
         proxyReq.setHeader('x-user-email', req.user.email || '');
       }
 
+      // Propagate correlation request ID
+      if (req.id) {
+        proxyReq.setHeader('x-request-id', req.id);
+      }
+
       const target = registry.resolve(req.headers['x-sentio-service']);
       console.log(`[Proxy] ${req.method} ${req.path} → ${target || 'UNKNOWN'}${req.path}`);
     },
