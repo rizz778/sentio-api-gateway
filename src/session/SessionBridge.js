@@ -165,6 +165,17 @@ class SessionBridge {
       return;
     }
 
+    if (serverEvent.distress_update) {
+      const d = serverEvent.distress_update;
+      this.sendToWs({
+        type: 'distress_update',
+        score: d.score,
+        emotion: d.emotion,
+        timestampMs: d.timestamp_ms,
+      });
+      return;
+    }
+
     if (serverEvent.error) {
       const err = serverEvent.error;
       console.error(`[SessionBridge] gRPC Server Error (${err.code}): ${err.message}`);
