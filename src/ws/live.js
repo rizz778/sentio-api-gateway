@@ -37,11 +37,22 @@ function handleLiveUpgrade(request, socket, head, user) {
   wss.handleUpgrade(request, socket, head, (ws) => {
     const connectionId = uuidv4();
 
+    // Extract client configuration (modalities, voice, instructions)
+    const rawModalities = query.modalities || query.responseModalities || query.modality;
+    const responseModalities = rawModalities
+      ? (Array.isArray(rawModalities) ? rawModalities : rawModalities.split(',').map(m => m.trim().toUpperCase()))
+      : ['AUDIO'];
+    const voiceName = query.voice || query.voiceName || 'Puck';
+    const systemInstructions = query.instructions || query.systemInstructions || '';
+
     const bridge = new SessionBridge(ws, {
       sessionId,
       userId,
       authToken: user?.token || '',   // raw verified token forwarded to FastAPI for its own checks
-      metadata: { email: user?.email || '' },
+      voiceName,
+      systemInstructions,
+      responseModalities,
+      metadata: { email: user?.email || '', ...query },
     });
 
     connectionManager.register(connectionId, userId, sessionId, ws, bridge);

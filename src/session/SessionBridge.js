@@ -2,14 +2,15 @@ const { createSessionStream } = require('../grpc/grpcClient');
 const config = require('../config');
 
 class SessionBridge {
-  constructor(ws, { sessionId, userId, authToken, metadata }) {
+  constructor(ws, { sessionId, userId, authToken, metadata, voiceName, systemInstructions, responseModalities }) {
     this.ws = ws;
     this.sessionId = sessionId;
     this.userId = userId;
     this.authToken = authToken;
     this.metadata = metadata || {};
-    // NOTE: voiceName and systemInstructions are intentionally excluded here.
-    // FastAPI owns those when it establishes its own Gemini Live session.
+    this.voiceName = voiceName || 'Puck';
+    this.systemInstructions = systemInstructions || '';
+    this.responseModalities = responseModalities || ['AUDIO'];
     this.grpcStream = null;
     this.isReconnecting = false;
     this.reconnectAttempts = 0;
@@ -51,14 +52,15 @@ class SessionBridge {
     try {
       this.grpcStream = createSessionStream();
 
-      // Send SessionInit — only identity & session context.
-      // voiceName and systemInstructions are NOT sent; FastAPI resolves those
-      // from its own config when it opens the Gemini Live session.
+      // Send SessionInit with client-configured modalities, voice, and system instructions
       const initEvent = {
         session_init: {
           session_id: this.sessionId,
           user_id: this.userId,
           auth_token: this.authToken,
+          system_instructions: this.systemInstructions,
+          voice_name: this.voiceName,
+          response_modalities: this.responseModalities,
           metadata: this.metadata,
         },
       };
