@@ -203,6 +203,16 @@ class SessionBridge {
     try {
       const msg = JSON.parse(data.toString());
 
+      // Video frame sent as JSON payload (e.g. { frame: base64 } or { type: "frame", data: base64 })
+      if (msg.frame || msg.type === 'frame' || msg.type === 'video_frame') {
+        const frameData = msg.frame || msg.data;
+        if (frameData) {
+          const frameBuffer = Buffer.isBuffer(frameData) ? frameData : Buffer.from(frameData, 'base64');
+          this.forwardVideoFrame(frameBuffer, msg.mime_type || msg.mimeType || 'image/jpeg');
+        }
+        return;
+      }
+
       switch (msg.type) {
         case 'interrupt':
           // Barge-in: user began speaking while model was replying
@@ -242,6 +252,27 @@ class SessionBridge {
     } catch (err) {
       console.warn(`[SessionBridge] Failed to write audio to gRPC:`, err.message);
       this.handleGrpcFailover(err);
+    }
+  }
+
+  /**
+   * Forwards client video frame to gRPC for local ONNX facial emotion analysis.
+   */
+  forwardVideoFrame(buffer, mimeType = 'image/jpeg') {
+    if (this.isReconnecting || !this.grpcStream || !this.grpcStream.writable) {
+      return; // Do not buffer stale video frames during reconnect
+    }
+
+    try {
+      this.grpcStream.write({
+        video_frame: {
+          data: buffer,
+          mime_type: mimeType,
+          timestamp_ms: Date.now(),
+        },
+      });
+    } catch (err) {
+      console.warn(`[SessionBridge] Failed to write video frame to gRPC:`, err.message);
     }
   }
 
