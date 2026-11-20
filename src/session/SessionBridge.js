@@ -214,6 +214,12 @@ class SessionBridge {
       }
 
       switch (msg.type) {
+        case 'text':
+        case 'chat':
+          // Typed textual chat turn from user
+          this.forwardTextMessage(msg.text || msg.message || '');
+          break;
+
         case 'interrupt':
           // Barge-in: user began speaking while model was replying
           this.forwardInterrupt(msg.reason || 'user_barge_in');
@@ -273,6 +279,27 @@ class SessionBridge {
       });
     } catch (err) {
       console.warn(`[SessionBridge] Failed to write video frame to gRPC:`, err.message);
+    }
+  }
+
+  /**
+   * Forwards user typed text turn to gRPC.
+   */
+  forwardTextMessage(text) {
+    if (!text || !text.trim()) return;
+    if (this.isReconnecting || !this.grpcStream || !this.grpcStream.writable) {
+      return;
+    }
+
+    try {
+      this.grpcStream.write({
+        text_message: {
+          text: text.trim(),
+          timestamp_ms: Date.now(),
+        },
+      });
+    } catch (err) {
+      console.warn(`[SessionBridge] Failed to write text message to gRPC:`, err.message);
     }
   }
 
