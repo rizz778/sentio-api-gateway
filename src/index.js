@@ -18,16 +18,18 @@ const { serviceRateLimiter, redis } = require('./middleware/rateLimiter');
 // ── Express App ──────────────────────────────────────────────────────────────
 const app = express();
 app.use(cors());
-app.use(express.json());
 
 // Global observability: request ID propagation & structured access logging
 app.use(requestIdMiddleware);
 app.use(requestLogger);
 
 // Gateway-hosted endpoints (health probes & authentication)
+// IMPORTANT: Only parse express.json() for internal endpoints!
+// DO NOT parse JSON before dynamicProxy, otherwise proxied request streams get consumed and abort.
 app.use('/', healthRouter);
-app.use('/', authRouter);
-app.use('/api', authRouter);
+app.use('/auth', express.json(), authRouter);
+app.use('/api/auth', express.json(), authRouter);
+app.use('/', express.json(), authRouter);
 
 // ── Dynamic Reverse Proxy ─────────────────────────────────────────────────────
 // All other requests require valid Google Auth token & service discovery header:
