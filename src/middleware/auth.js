@@ -85,6 +85,24 @@ async function verifyGoogleToken(req, res, next) {
   }
 }
 
+/**
+ * Extracts the auth token from a WebSocket upgrade request.
+ * Browsers cannot send Authorization headers on WS upgrades, so the token
+ * is passed as a ?token= query parameter. Falls back to Bearer header.
+ *
+ * @param {http.IncomingMessage} request
+ * @returns {string|null}
+ */
+function extractUpgradeToken(request) {
+  // 1. Try Authorization: Bearer header (non-browser clients)
+  const fromHeader = extractBearerToken(request.headers);
+  if (fromHeader) return fromHeader;
+
+  // 2. Try ?token= query parameter (browser WebSocket — standard path)
+  const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+  return url.searchParams.get('token') || null;
+}
+
 // ─── WebSocket Upgrade Guard ──────────────────────────────────────────────────
 
 /**
@@ -98,7 +116,7 @@ async function verifyGoogleToken(req, res, next) {
  *   Resolves with user on success, null if the socket was already rejected.
  */
 async function verifyGoogleTokenForUpgrade(request, socket) {
-  const token = extractBearerToken(request.headers);
+  const token = extractUpgradeToken(request);
 
   if (!token) {
     console.warn('[Auth] WS upgrade rejected: no Bearer token');
