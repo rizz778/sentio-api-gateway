@@ -1,24 +1,52 @@
 services:
   - type: web
     name: sentio-gateway
-    env: node
+    env: docker
     plan: free
-    buildCommand: npm install
-    startCommand: npm start
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: NODE_ENV
         value: production
       - key: HOST
         value: 0.0.0.0
+
+      # ── Gateway env vars ─────────────────────────────────
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
-      - key: SENTIO_SVC_NODE_BACKEND
-        sync: false
-      - key: SENTIO_SVC_FASTAPI_BACKEND
-        sync: false
-      - key: GRPC_TARGET
+      - key: GOOGLE_CLIENT_IDS
         sync: false
       - key: REDIS_URL
+        sync: false
+      # Services that gateway proxies via HTTP
+      - key: SENTIO_SVC_NODE_BACKEND
+        sync: false
+      # FastAPI HTTP (internal within container)
+      - key: SENTIO_SVC_FASTAPI_BACKEND
+        value: http://localhost:8000
+      # gRPC is local — always localhost in this combined container
+      - key: GRPC_TARGET
+        value: localhost:50051
+
+      # ── FastAPI env vars (passed to container, picked up by supervisor) ──
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: NODE_BACKEND_URL
+        sync: false
+      - key: GEMINI_VISION_MODEL
+        value: gemini-2.5-flash
+      - key: GEMINI_LIVE_TEXT_MODEL
+        value: gemini-3.8-live
+      - key: GEMINI_AUDIO_MODEL
+        value: gemini-3.8-live
+      - key: GEMINI_DISTRESS_MODEL
+        value: gemini-3.5-flash-lite
+      - key: GEMINI_VOICE_NAME
+        value: Puck
+      - key: GEMINI_TEXT_MODEL
+        value: gemini-3.5-flash-lite
+      - key: MONGODB_URL
+        sync: false
+      - key: DISTRESS_API_KEY
         sync: false
