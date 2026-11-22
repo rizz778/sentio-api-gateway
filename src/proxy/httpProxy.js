@@ -30,24 +30,29 @@ const dynamicProxy = createProxyMiddleware({
 
   // http-proxy-middleware v2 event handlers
   onProxyReq: (proxyReq, req, res) => {
-    // If body was parsed by any upstream middleware, re-stream it with correct length
-    if (req.body && Object.keys(req.body).length > 0) {
-      fixRequestBody(proxyReq, req);
-    }
+    try {
+      if (!proxyReq.headersSent) {
+        // 1. ALL header manipulations MUST happen before any body is written!
+        try {
+          proxyReq.removeHeader('x-sentio-service');
+        } catch (_) {}
 
-    // Strip the routing header — backends must never see it
-    proxyReq.removeHeader('x-sentio-service');
+        if (req.user) {
+          proxyReq.setHeader('x-user-id', req.user.uid);
+          proxyReq.setHeader('x-user-email', req.user.email || '');
+        }
 
-    // Inject verified identity headers so downstream services trust req.user
-    // without re-verifying the Google token themselves
-    if (req.user) {
-      proxyReq.setHeader('x-user-id', req.user.uid);
-      proxyReq.setHeader('x-user-email', req.user.email || '');
-    }
+        if (req.id) {
+          proxyReq.setHeader('x-request-id', req.id);
+        }
 
-    // Propagate correlation request ID
-    if (req.id) {
-      proxyReq.setHeader('x-request-id', req.id);
+        // 2. Only write body AFTER headers are fully configured
+        if (req.body && Object.keys(req.body).length > 0) {
+          fixRequestBody(proxyReq, req);
+        }
+      }
+    } catch (err) {
+      console.error('[Proxy] Error in onProxyReq:', err.message);
     }
 
     const target = registry.resolve(req.headers['x-sentio-service']);
@@ -62,32 +67,6 @@ const dynamicProxy = createProxyMiddleware({
         message: `Failed to reach upstream service: ${err.message}`,
       });
     }
-  },
-
-  // v3 forward compatibility object
-  on: {
-    proxyReq: (proxyReq, req) => {
-      if (req.body && Object.keys(req.body).length > 0) {
-        fixRequestBody(proxyReq, req);
-      }
-      proxyReq.removeHeader('x-sentio-service');
-      if (req.user) {
-        proxyReq.setHeader('x-user-id', req.user.uid);
-        proxyReq.setHeader('x-user-email', req.user.email || '');
-      }
-      if (req.id) {
-        proxyReq.setHeader('x-request-id', req.id);
-      }
-    },
-    error: (err, req, res) => {
-      console.error(`[Proxy] Error forwarding to service:`, err.message);
-      if (!res.headersSent) {
-        res.status(502).json({
-          error: 'BAD_GATEWAY',
-          message: `Failed to reach upstream service: ${err.message}`,
-        });
-      }
-    },
   },
 });
 

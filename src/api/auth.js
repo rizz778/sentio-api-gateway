@@ -7,8 +7,9 @@ const { googleAuth, getMe } = require('../controller/auth');
 
 /**
  * Authentication Routes
+ * Matches both /google and /auth/google regardless of whether mounted on / or /auth or /api/auth.
  */
-router.post('/auth/google', authRateLimiter, googleAuth);
-router.get('/auth/me', verifyGoogleToken, getMe);
+router.post(['/google', '/auth/google'], authRateLimiter, googleAuth);
+router.get(['/me', '/auth/me'], verifyGoogleToken, getMe);
 
 module.exports = router;

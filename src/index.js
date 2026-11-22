@@ -29,7 +29,6 @@ app.use(requestLogger);
 app.use('/', healthRouter);
 app.use('/auth', express.json(), authRouter);
 app.use('/api/auth', express.json(), authRouter);
-app.use('/', express.json(), authRouter);
 
 // ── Dynamic Reverse Proxy ─────────────────────────────────────────────────────
 // All other requests require valid Google Auth token & service discovery header:
