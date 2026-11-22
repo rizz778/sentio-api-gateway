@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: sentio-gateway
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: SENTIO_SVC_NODE_BACKEND
+        sync: false
+      - key: SENTIO_SVC_FASTAPI_BACKEND
+        sync: false
+      - key: GRPC_TARGET
+        sync: false
+      - key: REDIS_URL
+        sync: false
