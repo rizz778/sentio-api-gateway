@@ -35,7 +35,7 @@ services:
       - key: NODE_BACKEND_URL
         sync: false
       - key: GEMINI_VISION_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.8-flash
       - key: GEMINI_LIVE_TEXT_MODEL
         value: gemini-3.8-live
       - key: GEMINI_AUDIO_MODEL
